@@ -1,47 +1,34 @@
 from flask import Flask, render_template, request
 import joblib
 import pandas as pd
-from sklearn.preprocessing import LabelEncoder # Tambahkan import ini
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 
 app = Flask(__name__)
 
-# Load model dan encoder saat start
-# model/rf_model.pkl adalah model klasifikasi Anda
-# model/encoders.pkl sekarang kita tahu berisi SATU LabelEncoder untuk 'flag'
-model = joblib.load('model/rf_model.pkl')
-flag_encoder = joblib.load('model/encoders.pkl') # Ganti nama variabel menjadi flag_encoder
-
-# Pastikan flag_encoder benar-benar objek LabelEncoder
-if not isinstance(flag_encoder, LabelEncoder):
-    raise TypeError("Objek yang dimuat dari 'encoders.pkl' bukan LabelEncoder yang diharapkan. "
-                    "Periksa kembali file tersebut.")
-
-# Manual mapping untuk protocol_type (karena tidak ada encoder di encoders.pkl)
-# Ini adalah asumsi berdasarkan opsi di index.html
-protocol_type_map = {
-    'tcp': 0,
-    'udp': 1,
-    'icmp': 2
+# --- Muat SEMUA model dan preprocessor saat startup ---
+MODELS = {
+    'logistic_regression': joblib.load('model/logistic_regression_model.pkl'),
+    'random_forest': joblib.load('model/random_forest_model.pkl'),
+    'svm': joblib.load('model/svm_model.pkl'),
+    'naive_bayes': joblib.load('model/naive_bayes_model.pkl'),
+    'knn': joblib.load('model/knn_model.pkl'),
 }
 
-# Manual mapping untuk service (karena tidak ada encoder di encoders.pkl)
-# Ini adalah asumsi berdasarkan opsi di index.html.
-# Idealnya, ini harus sesuai dengan encoding yang digunakan saat model dilatih.
-service_options = [
-    "whois", "uucp_path", "uuurp", "urp_i", "urh_i", "time", "tim_i", "tftp_u",
-    "telnet", "systat", "supdup", "sunrpc", "ssh", "sql_net", "smtp", "smtpi",
-    "shell", "remote_job", "red_i", "private", "print_srv", "pop_3", "pop_2",
-    "pm_udp", "other", "ntp_u", "netstat", "netbios_ns", "netbios_dgm",
-    "netbios_ssn", "netmbe", "mtp", "login", "link", "ldap", "klogin", "kshell",
-    "iso_tsap", "IRC", "http_8001", "http_443", "http_2784", "http", "hostname",
-    "hostnames", "gopher", "ftp_data", "ftp", "finger", "exec", "efs", "eco_i",
-    "echo", "domain_u", "domain", "discard", "daytime", "ctf", "csnet_ns",
-    "courier", "bgp", "auth", "aol", "Z39_50", "X11"
-]
-service_map = {service: i for i, service in enumerate(service_options)}
+ENCODERS = {
+    'flag': joblib.load('model/encoder_flag.pkl'),
+    'protocol_type': joblib.load('model/encoder_protocol_type.pkl'),
+    'service': joblib.load('model/encoder_service.pkl')
+}
+SCALER = joblib.load('model/scaler.pkl')
+
+if not isinstance(ENCODERS['flag'], LabelEncoder):
+    raise TypeError("Objek yang dimuat dari 'encoder_flag.pkl' bukan LabelEncoder yang diharapkan.")
+if not isinstance(ENCODERS['protocol_type'], LabelEncoder):
+    raise TypeError("Objek yang dimuat dari 'encoder_protocol_type.pkl' bukan LabelEncoder yang diharapkan.")
+if not isinstance(ENCODERS['service'], LabelEncoder):
+    raise TypeError("Objek yang dimuat dari 'encoder_service.pkl' bukan LabelEncoder yang diharapkan.")
 
 
-# Daftar fitur yang dibutuhkan oleh model
 REQUIRED_FEATURES = [
     'duration', 'protocol_type', 'service', 'flag', 'src_bytes', 'logged_in',
     'root_shell', 'su_attempted', 'num_file_creations', 'num_access_files',
@@ -54,78 +41,91 @@ REQUIRED_FEATURES = [
     'dst_host_rerror_rate', 'dst_host_srv_rerror_rate'
 ]
 
-def predict_new_data(new_data):
+def predict_new_data(new_data, selected_model):
     df = pd.DataFrame([new_data])
 
-    # --- Encoding untuk kolom 'flag' ---
-    if 'flag' in df.columns:
-        df['flag'] = df['flag'].apply(lambda x: flag_encoder.transform([x])[0] if x in flag_encoder.classes_ else -1)
-    else:
-        print("Peringatan: Kolom 'flag' tidak ditemukan di data input. Tidak dapat menerapkan flag_encoder.")
-        # Jika kolom flag tidak ada, isi dengan nilai default numerik (misal 0)
-        df['flag'] = 0
+    categorical_features = ['flag', 'protocol_type', 'service']
+    for col in categorical_features:
+        if col in df.columns:
+            value_to_encode = df[col].iloc[0]
+            encoder = ENCODERS[col]
+            if value_to_encode in encoder.classes_:
+                df[col] = encoder.transform([value_to_encode])[0]
+            else:
+                print(f"Peringatan: Nilai '{col}' '{value_to_encode}' tidak dikenal oleh encoder. Menggunakan -1.")
+                df[col] = -1
+        else:
+            print(f"Peringatan: Kolom '{col}' tidak ditemukan di data input. Mengisi dengan 0.")
+            df[col] = 0
 
-    # --- Encoding untuk 'protocol_type' ---
-    if 'protocol_type' in df.columns:
-        df['protocol_type'] = df['protocol_type'].apply(lambda x: protocol_type_map.get(x, -1)) # -1 for unknown
-    else:
-        print("Peringatan: Kolom 'protocol_type' tidak ditemukan di data input. Mengisi dengan 0.")
-        df['protocol_type'] = 0
-
-    # --- Encoding untuk 'service' ---
-    if 'service' in df.columns:
-        df['service'] = df['service'].apply(lambda x: service_map.get(x, -1)) # -1 for unknown
-    else:
-        print("Peringatan: Kolom 'service' tidak ditemukan di data input. Mengisi dengan 0.")
-        df['service'] = 0
-
-    # Pastikan semua fitur yang dibutuhkan ada, jika tidak, isi dengan 0
-    # Ini penting untuk fitur numerik yang mungkin tidak diisi di form
     for col in REQUIRED_FEATURES:
         if col not in df.columns:
             df[col] = 0
-        # Pastikan tipe data numerik sudah benar (setelah encoding kategorikal)
-        # Jika ada kolom yang masih string karena suatu alasan, coba konversi ke numerik
         try:
-            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0) # Convert to numeric, fill NaN with 0
+            df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
         except Exception as e:
             print(f"Peringatan: Gagal mengonversi kolom '{col}' ke numerik: {e}. Mengisi dengan 0.")
             df[col] = 0
 
-
-    # Pastikan urutan kolom sesuai dengan yang dibutuhkan model
     df = df[REQUIRED_FEATURES]
+    df_scaled = SCALER.transform(df)
 
     # Lakukan prediksi probabilitas
-    proba = model.predict_proba(df)[0][1]
-    pred = int(proba >= 0.4)
+    proba_anomaly = 0.5 # Default fallback
+    if hasattr(selected_model, 'predict_proba'):
+        # predict_proba mengembalikan probabilitas untuk semua kelas.
+        # Untuk klasifikasi biner, biasanya [prob_kelas_0, prob_kelas_1].
+        # Kita ingin probabilitas kelas 1 (anomali).
+        probabilities = selected_model.predict_proba(df_scaled)[0]
+        proba_normal = probabilities[0]  # Probabilitas kelas 0 (Normal)
+        proba_anomaly = probabilities[1] # Probabilitas kelas 1 (Anomali)
+    else:
+        print(f"Peringatan: Model {selected_model.__class__.__name__} tidak mendukung predict_proba. Mengembalikan probabilitas 0.5 untuk keduanya.")
+        proba_normal = 0.5
 
-    return {'prediction': pred, 'probability': round(proba, 4)}
+    # Ambang batas prediksi (misal 0.4 atau 0.5 sesuai keinginan Anda)
+    # Saya akan tetap menggunakan 0.4 seperti di kode awal Anda,
+    # tetapi Anda bisa mengubahnya menjadi 0.5 jika ingin 50% menjadi normal.
+    pred = int(proba_anomaly >= 0.4)
+
+    return {
+        'prediction': pred,
+        'probability_anomaly': round(proba_anomaly, 4), # Mengubah nama kunci
+        'probability_normal': round(proba_normal, 4)    # Menambahkan probabilitas normal
+    }
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
     result = None
+    available_models = {key: key.replace('_', ' ').title() for key in MODELS.keys()}
+
     if request.method == 'POST':
+        selected_model_name = request.form.get('model_selector')
+        selected_model = MODELS.get(selected_model_name)
+
+        if not selected_model:
+            result = {'prediction': -1, 'message': "Model yang dipilih tidak valid."}
+            return render_template('index.html', result=result, available_models=available_models)
+
         input_data = {}
         for key in REQUIRED_FEATURES:
-            # Ambil semua input sebagai string terlebih dahulu
             val = request.form.get(key)
-            # Kemudian konversi ke float jika bukan kolom kategorikal
             if key in ['protocol_type', 'flag', 'service']:
-                input_data[key] = val # Tetap string untuk encoding nanti
+                input_data[key] = val
             else:
                 try:
-                    input_data[key] = float(val) if val else 0.0 # Konversi ke float, default 0.0 jika kosong
+                    input_data[key] = float(val) if val else 0.0
                 except ValueError:
-                    input_data[key] = 0.0 # Jika tidak bisa dikonversi, default 0.0
+                    input_data[key] = 0.0
 
         try:
-            result = predict_new_data(input_data)
+            result = predict_new_data(input_data, selected_model)
+            result['model_used'] = available_models.get(selected_model_name, selected_model_name)
         except Exception as e:
             result = {'prediction': -1, 'message': f"Terjadi kesalahan saat prediksi: {e}"}
             print(f"Error saat memanggil predict_new_data: {e}")
 
-    return render_template('index.html', result=result)
+    return render_template('index.html', result=result, available_models=available_models)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0', port=5000)

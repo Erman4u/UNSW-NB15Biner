@@ -1,4 +1,21 @@
-venv/
+# Python
 __pycache__/
 *.pyc
-.DS_Store
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+*.egg-info/
+.pytest_cache/
+
+# Flask
+instance/
+
+# IDEs
+.vscode/
+.idea/
+
+# Models (opsional, jika Anda ingin mengecualikan model .pkl)
+# Jika Anda ingin push model, hapus baris ini
+# model/*.pkl

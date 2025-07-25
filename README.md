@@ -1,133 +1,109 @@
-<<<<<<< HEAD
-Berikut adalah **dokumentasi lengkap** proyek Anda berdasarkan penjelasan dan instruksi yang Anda berikan:
+Deteksi Anomali Jaringan dengan Berbagai Model Machine Learning
+! (https://placehold.co/800x400/aabbcc/ffffff?text=Deteksi+Anomali+Jaringan)
 
----
+Proyek ini adalah aplikasi web sederhana berbasis Flask untuk mendeteksi anomali (serangan) pada trafik jaringan menggunakan beberapa model Machine Learning yang berbeda. Pengguna dapat memasukkan parameter trafik jaringan dan memilih model klasifikasi yang ingin digunakan untuk prediksi.
 
-# Dep-Pur-IDS: Intrusion Detection System
+Fitur Utama
+Pilihan Model: Pengguna dapat memilih antara berbagai model Machine Learning untuk prediksi, termasuk:
 
-Sistem ini digunakan untuk mendeteksi apakah sebuah koneksi jaringan merupakan **serangan (Attack)** atau **normal**, menggunakan model Machine Learning berbasis **Random Forest**.
+Logistic Regression
 
----
+Random Forest
 
-## Struktur Direktori
+Support Vector Machine (SVM)
 
-```
-Dep-Pur-IDS/
-├── app.py                       # Aplikasi utama Flask
-├── model/
-│   ├── rf_model.pkl            # Model RandomForest hasil training
-│   ├── lgb_model.pkl           # (Opsional) Model LightGBM jika ingin digunakan
-│   └── encoders.pkl            # LabelEncoder untuk kolom kategorikal
-├── requirements.txt            # Dependensi Python
-├── static/                     # Folder asset statis (optional)
-└── templates/
-    └── index.html              # UI/UX form input & hasil prediksi
-```
+Naive Bayes
 
----
+K-Nearest Neighbors (KNN)
 
-## Fitur Aplikasi
+Prediksi Real-time: Dapatkan hasil prediksi (Normal atau Anomali) dan probabilitas terkait secara instan.
 
-* Input manual data koneksi jaringan
-* Prediksi hasil: **Attack** atau **Normal**
-* Tampilan web responsif (Tailwind CSS)
-* Support via `Flask` dan bisa dijalankan lokal atau via Docker
+Probabilitas Ganda: Menampilkan probabilitas untuk kelas "Anomali" dan "Normal" untuk pemahaman yang lebih baik tentang keyakinan model.
 
----
+Isi Data Otomatis: Tombol praktis untuk mengisi formulir dengan contoh data trafik "Normal" atau "Anomali" untuk pengujian cepat.
 
-## Training Model (Offline)
+Antarmuka Pengguna Sederhana: Antarmuka berbasis web yang intuitif untuk memasukkan data trafik.
 
-Model dilatih menggunakan dataset yang sesuai dengan fitur berikut:
+Model yang Digunakan
+Proyek ini menggunakan model-model klasifikasi berikut yang telah dilatih pada dataset deteksi anomali jaringan:
 
-```python
-REQUIRED_FEATURES = ['dur', 'proto', 'service', 'state', 'spkts', 'dpkts', 'sbytes', 'dbytes', 
-    'rate', 'sttl', 'dttl', 'sload', 'dload', 'sloss', 'dloss', 'sinpkt', 
-    'dinpkt', 'sjit', 'djit', 'swin', 'stcpb', 'dtcpb', 'dwin', 'tcprtt', 
-    'synack', 'ackdat', 'smean', 'dmean', 'trans_depth', 'response_body_len',
-    'ct_srv_src', 'ct_state_ttl', 'ct_dst_ltm', 'ct_src_dport_ltm', 
-    'ct_dst_sport_ltm', 'ct_dst_src_ltm', 'is_ftp_login', 'ct_ftp_cmd', 
-    'ct_flw_http_mthd', 'ct_src_ltm', 'ct_srv_dst', 'is_sm_ips_ports']
-```
+Logistic Regression: Model linier untuk klasifikasi.
 
-### Contoh simpan model dari training:
+Random Forest: Ensemble dari decision tree yang kuat, baik untuk data kompleks.
 
-```python
-joblib.dump(best_rf, "rf_model.pkl")
-joblib.dump(best_lgb, "lgb_model.pkl")
-joblib.dump(label_encoders, "encoders.pkl")
-```
+Support Vector Machine (SVM): Model yang mencari hyperplane optimal untuk memisahkan kelas.
 
-Lalu, salin file `.pkl` tersebut ke folder `model/`.
+Naive Bayes (GaussianNB): Model probabilistik berdasarkan Teorema Bayes.
 
----
+K-Nearest Neighbors (KNN): Model berbasis instansi yang mengklasifikasikan data berdasarkan tetangga terdekat.
 
+Semua model dan preprocessor (seperti LabelEncoder dan StandardScaler) disimpan dalam format .pkl di direktori model/.
 
-## Model Machine Learning
+Persyaratan Sistem
+Python 3.x
 
-Model yang digunakan saat ini adalah:
+pip (manajer paket Python)
 
-* **RandomForestClassifier**
-* LabelEncoder untuk kolom: `proto`, `service`, `state`
+Instalasi dan Setup
+Ikuti langkah-langkah di bawah ini untuk menjalankan aplikasi di lingkungan lokal Anda:
 
-Jika ingin menggunakan algoritma lain seperti **LightGBM**, tinggal ubah baris di `app.py`:
+Kloning Repositori:
+Buka Command Prompt (CMD) atau terminal Anda dan kloning repositori ini:
 
-```python
-model = joblib.load('model/lgb_model.pkl')  # Jika ingin pakai LightGBM
-```
+git clone https://github.com/NamaPenggunaAnda/Deteksi-Anomali-Jaringan.git
+cd Deteksi-Anomali-Jaringan
 
----
+(Ganti NamaPenggunaAnda/Deteksi-Anomali-Jaringan.git dengan URL repositori Anda yang sebenarnya.)
 
-## Menjalankan Aplikasi
+Buat dan Aktifkan Virtual Environment:
+Sangat disarankan untuk menggunakan virtual environment untuk mengelola dependencies.
 
-### Secara Lokal
+python -m venv venv
 
-```bash
+Untuk Windows:
+
+venv\Scripts\activate
+
+Untuk macOS/Linux:
+
+source venv/bin/activate
+
+Instal Dependencies:
+Setelah virtual environment aktif, instal semua library yang diperlukan:
+
+pip install Flask joblib pandas scikit-learn
+
+Siapkan Model (Penting!):
+Pastikan Anda telah melatih dan menyimpan semua model (logistic_regression_model.pkl, random_forest_model.pkl, svm_model.pkl, naive_bayes_model.pkl, knn_model.pkl) serta preprocessor (encoder_flag.pkl, encoder_protocol_type.pkl, encoder_service.pkl, scaler.pkl) di dalam folder model/ di direktori proyek Anda. Jika Anda tidak memiliki model-model ini, aplikasi tidak akan berjalan.
+
+Menjalankan Aplikasi
+Setelah semua dependencies terinstal dan virtual environment aktif, Anda dapat menjalankan aplikasi Flask:
+
 python app.py
-```
 
-Akses: [http://localhost:5000](http://localhost:5000)
+Anda akan melihat output di terminal yang menunjukkan bahwa aplikasi sedang berjalan. Cari baris seperti:
 
-> Pastikan Anda sudah menginstall dependensi:
->
-> ```bash
-> pip install -r requirements.txt
-> ```
+ * Running on http://127.0.0.1:5000
 
----
+Mengakses Aplikasi
+Buka browser web Anda dan kunjungi alamat yang tertera di terminal (biasanya http://127.0.0.1:5000/ atau http://localhost:5000/).
 
-### Menggunakan Docker
+Cara Menggunakan Aplikasi
+Pilih Model: Gunakan dropdown "Pilih Model" untuk memilih salah satu model klasifikasi yang tersedia.
 
-1. **Build image:**
+Isi Data Trafik:
 
-```bash
-docker build -t flask-ids-app .
-```
+Anda dapat mengisi setiap kolom input secara manual dengan nilai-nilai trafik jaringan.
 
-2. **Jalankan container:**
+Atau, gunakan tombol "Isi Data Normal" atau "Isi Data Anomali" untuk mengisi formulir secara otomatis dengan contoh data.
 
-```bash
-docker run -d -p 5000:5000 flask-ids-app
-```
+Lakukan Prediksi: Klik tombol "Prediksi".
 
-3. **Akses aplikasi:**
+Lihat Hasil: Hasil prediksi (Status: ANOMALI/NORMAL) dan probabilitas untuk Anomali dan Normal akan ditampilkan di bawah formulir.
 
-Buka [http://localhost:5000](http://localhost:5000) di browser Anda.
+Catatan Penting
+Mode Debug: Aplikasi berjalan dalam mode debug (debug=True) untuk pengembangan. Jangan gunakan mode ini untuk deployment produksi.
 
----
+Versi Scikit-learn: Anda mungkin melihat peringatan InconsistentVersionWarning jika versi scikit-learn saat model dilatih berbeda dengan versi yang terinstal. Untuk mengatasi ini, disarankan untuk melatih ulang model Anda dengan versi scikit-learn yang sama dengan yang Anda gunakan untuk deployment, atau sesuaikan versi scikit-learn di virtual environment Anda.
 
-## UI/UX
-
-Tampilan antarmuka ada di:
-
-```
-templates/index.html
-```
-
-Sudah menggunakan Tailwind CSS dan mendukung input seluruh fitur yang diperlukan. Form akan tampil otomatis berdasarkan nama kolom `REQUIRED_FEATURES`.
-
----
-
-Jika Anda butuh file `README.md` versi Markdown untuk langsung commit ke GitHub, saya bisa bantu generate juga. Mau saya buatkan?
-=======
-# NSL-KDD
->>>>>>> a6814b0ad77fa04c2431724eea35d697e7b60b56
+Selamat menggunakan aplikasi Deteksi Anomali Jaringan ini!
